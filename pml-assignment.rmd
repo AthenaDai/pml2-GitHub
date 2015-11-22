@@ -1,0 +1,66 @@
+---
+title: "Coursera Practical Machine Learning Assignment"
+author: "Athena Dai"
+date: "November 22, 2015"
+output: html_document
+---
+
+This is an R Markdown documentprepared for course project assignment of Coursera Practical Machine Learning Nov 2015 session. 
+
+Step1: Load the required packages
+```{r}
+library(caret)
+library(randomForest)
+library(ggplot2)
+```
+Step2: Read required data from the corresponding URLs
+```{r}
+training<-"http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testing<-"http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training<-read.csv(training,na.strings=c("NA",""))
+testing<-read.csv(testing,na.strings=c("NA",""))
+```
+Step3: Obtain list of variables and # of observations
+```{r}
+dim(training)
+names(training)
+```
+Step4: remove variables that seems to be date stamp etc
+```{r}
+training<-training[,8:160]
+testing<-testing[,8:160]
+```
+Step5: remove variables that contains too much NAs and reduce # of predictors to smaller and higher-quality set.
+```{r}
+nonNA<-apply(!is.na(training),2,sum)>19621
+training<-training[,nonNA]
+testing<-testing[,nonNA]
+dim(training)
+```
+Step6: take a smaller(i.e., 30%) sample for model training and use seed to ensure reproducibility
+```{r}
+inTrain<-createDataPartition(y=training$classe,p=0.3, list=FALSE)
+dtraining<-training[inTrain,]
+```
+Step7: Decide to build a random forest model since RF is known to be the most accurate machine learning algo along with boosting. with 50+ predictors in this modeling problem, picking RF also plays to the strength of this approach. 5-fold Cross-validation used to run RF model. As shown in the output, mtry=27 generated the best cross-validation accuracy i.e., ~0.98 therefore used. 
+```{r}
+rfModel<-train(classe ~ .,method="rf",data=dtraining,trControl=trainControl(method="cv",number=5),prox=TRUE,allowParallel=TRUE)
+print(rfModel)
+```
+Step8: print out the top preditors based on the model
+```{r}
+varImp(rfModel)
+```
+Step9: use the rf model above to generate prediction for the testing data. I used the pml_write_files function to parse the preditions into 20 text files saved under the working directory. After submitting the answers to the coure website, I got 20/20 accuracy, indicating an out-of-sample accuracy of 100%.   
+```{r}
+answer<-predict(rfModel,newdata=testing)
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answer)
+```
+
